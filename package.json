@@ -1,0 +1,31 @@
+{
+  "name": "egg-task",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/callmez/egg-task.git"
+  },
+  "keywords": [
+    "egg",
+    "task",
+    "bull"
+  ],
+  "author": "callme-z@qq.com",
+  "bugs": {
+    "url": "https://github.com/callmez/egg-task/issues"
+  },
+  "homepage": "https://github.com/callmez/egg-task#readme",
+  "eggPlugin": {
+    "name": "task"
+  },
+  "dependencies": {
+    "assert": "^1.4.1",
+    "bull": "^3.4.2",
+    "lodash": "^4.17.10"
+  }
+}
