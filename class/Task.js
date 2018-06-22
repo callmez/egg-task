@@ -65,7 +65,7 @@ module.exports = class Task extends BaseContextClass {
       ...data,
     };
     const job = await this.queue.add(_data, options);
-    this.log({ message: 'addTask', job: job.toJSON() });
+    this.log({ message: 'add task', job: job.toJSON() });
     return result;
   }
 
@@ -75,7 +75,7 @@ module.exports = class Task extends BaseContextClass {
    * @return {Promise<*>}
    */
   async processTask(job) {
-    this.log({ message: 'processTask', job: job.toJSON() });
+    this.log({ message: 'process task', job: job.toJSON() });
     return this.process(job);
   }
 };
