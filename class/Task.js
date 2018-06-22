@@ -16,7 +16,7 @@ module.exports = class Task extends BaseContextClass {
    * @param data
    * @return {Promise<void>}
    */
-  async log({ type = 'info', message, ...data}) {
+  log({ type = 'info', message, ...data}) {
     this.app.logger[type](`${this.pathName}`, message, data);
   }
 
