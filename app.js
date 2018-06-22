@@ -48,9 +48,12 @@ module.exports = app => {
       const pathName = _.get(job.data, 'meta.pathName');
       if (!pathName) throw new Error('Missing task pathName meta data.');
       const ctx = app.createAnonymousContext();
-      const process = _.get(ctx, `${pathName}.processTask`);
-      if (!process) throw new Error(`The method processTask of task ${pathName} is not exists.`);
-      return process(job);
+      const task = _.get(ctx, pathName);
+      if (!task) throw new Error(`The task ${pathName} is not exists.`);
+      return task.processTask(job);
+    });
+    queueClient.on('error', error => {
+      app.coreLogger.error(error);
     });
   }
 };

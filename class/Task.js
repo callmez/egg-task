@@ -10,6 +10,17 @@ module.exports = class Task extends BaseContextClass {
   }
 
   /**
+   * 记录日志信息
+   * @param type
+   * @param message
+   * @param data
+   * @return {Promise<void>}
+   */
+  async log({ type = 'info', message, ...data}) {
+    this.app.logger[type](`${this.pathName}`, message, data);
+  }
+
+  /**
    * 通过复写该方法获得该task默认选项
    * @return {{}}
    */
@@ -21,9 +32,9 @@ module.exports = class Task extends BaseContextClass {
    * 添加任务. 默认执行该操作,可复写更改任务流程
    * @param data
    * @param options
-   * @return {*}
+   * @return {Promise<*>}
    */
-  add(data, options = {}) {
+  async add(data, options = {}) {
     return this.addTask(data, {
       ...this.options,
       ...options,
@@ -42,17 +53,20 @@ module.exports = class Task extends BaseContextClass {
    * 该方法为基础调用. 请勿复写
    * @param data
    * @param options
-   * @return {*}
+   * @return {Promise<*>}
    */
-  addTask(data, options) {
+  async addTask(data, options) {
     const { fullPath, pathName } = this;
-    return this.queue.add({
+    const _data = {
       meta: {
         fullPath,
         pathName,
       },
       ...data,
-    }, options);
+    };
+    const job = await this.queue.add(_data, options);
+    this.log({ message: 'addTask', job: job.toJSON() });
+    return result;
   }
 
   /**
@@ -61,6 +75,7 @@ module.exports = class Task extends BaseContextClass {
    * @return {Promise<*>}
    */
   async processTask(job) {
+    this.log({ message: 'processTask', job: job.toJSON() });
     return this.process(job);
   }
 };
