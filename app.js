@@ -52,8 +52,12 @@ module.exports = app => {
       if (!task) throw new Error(`The task ${pathName} is not exists.`);
       return task.processTask(job);
     });
-    queueClient.on('error', error => {
-      app.coreLogger.error(error);
-    });
+    queueClient
+      .on('failed', (job, error) => {
+        app.logger.error('[egg-task]', 'process failed', error, job);
+      })
+      .on('error', error => {
+        app.logger.error('[egg-task]', 'process error', error);
+      });
   }
 };

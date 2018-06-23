@@ -10,6 +10,14 @@ module.exports = class Task extends BaseContextClass {
   }
 
   /**
+   * 通过复写该方法获得该task默认选项
+   * @return {{}} - return task options
+   */
+  get options() {
+    return {};
+  }
+
+  /**
    * 记录日志信息
    * @param type
    * @param message
@@ -18,14 +26,6 @@ module.exports = class Task extends BaseContextClass {
    */
   log({ type = 'info', message, ...data}) {
     this.app.logger[type](`${this.pathName}`, message, data);
-  }
-
-  /**
-   * 通过复写该方法获得该task默认选项
-   * @return {{}}
-   */
-  get options() {
-    return {};
   }
 
   /**
