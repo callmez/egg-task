@@ -1,6 +1,7 @@
 'use strict';
 
 const { BaseContextClass } = require('egg');
+const _ = require('lodash');
 
 module.exports = class Task extends BaseContextClass {
 
@@ -21,13 +22,14 @@ module.exports = class Task extends BaseContextClass {
    * 记录日志信息
    * @param type
    * @param message
+   * @param category
    * @param data
    * @return {Promise<void>}
    */
-  log({ type = 'info', message, ...data}) {
-    this.app.logger[type](`${this.pathName}`, message, data);
+  log({ type = 'info', message, category = 'app', ...data}) {
+    this.app.logger[type]('[task]', `[${this.pathName}]`, `[${category}]`, message, data);
   }
-
+  
   /**
    * 添加任务. 默认执行该操作,可复写更改任务流程
    * @param data
@@ -50,6 +52,22 @@ module.exports = class Task extends BaseContextClass {
   }
 
   /**
+   * 调用子任务
+   * @param string name
+   * @param {Array} args
+   * @return {Promise<*>}
+   */
+  async addSubtask(name, ...args) {
+    const task = _.get(this.task, name);
+    if (!task instanceof Task) {
+      throw new Error('The subtask class must instance of Task');
+    }
+    const job = await task.add.apply(task, args);
+    this.log({ message: 'add subtask', category: 'system', job: job.toJSON() });
+    return job;
+  }
+
+  /**
    * 该方法为基础调用. 请勿复写
    * @param data
    * @param options
@@ -65,7 +83,7 @@ module.exports = class Task extends BaseContextClass {
       ...data,
     };
     const job = await this.queue.add(_data, options);
-    this.log({ message: 'add task', job: job.toJSON() });
+    this.log({ message: 'add task', category: 'system', job: job.toJSON() });
     return job;
   }
 
@@ -75,7 +93,7 @@ module.exports = class Task extends BaseContextClass {
    * @return {Promise<*>}
    */
   async processTask(job) {
-    this.log({ message: 'process task', job: job.toJSON() });
+    this.log({ message: 'process task', category: 'system', job: job.toJSON() });
     return this.process(job);
   }
 };
