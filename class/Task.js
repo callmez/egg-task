@@ -68,6 +68,19 @@ module.exports = class Task extends BaseContextClass {
   }
 
   /**
+   * @param {string} key 锁定键值
+   * @param {number} ttl 超时锁定时间 默认1天
+   * @return {Promise<Promise<*>|*>}
+   */
+  async lock(key, ttl = 24 * 3600 * 1000) {
+    return this.redlock.lock(key, ttl);
+  }
+
+  async unlock(){
+    return this.redlock.unlock();
+  }
+
+  /**
    * 该方法为基础调用. 请勿复写
    * @param data
    * @param options
@@ -93,7 +106,28 @@ module.exports = class Task extends BaseContextClass {
    * @return {Promise<*>}
    */
   async processTask(job) {
-    this.log({ message: 'process task', category: 'system', job: job.toJSON() });
-    return this.process(job);
+    // !!注意!! 设定了开启了lock之后, 需要指定jobID才能锁定指定的job,
+    let lock = _.get(job, 'opts.lock', false);
+    if (!!lock) {
+      const jobID = _.get(job, 'opts.repeat.jobId', job.id);
+      const ttl = /\d+/.test(lock) ? lock : 24 * 3600 * 1000; // 默认锁超时1天
+      try {
+        lock = await this.redlock.lock(`lock:${jobID}`, ttl); // TODO 更完善的重试job时锁控制
+      } catch (e) {
+        this.log({ type: 'debug', message: `The task job ${jobID} has been locked. will skip this job call.`});
+        return false;
+      }
+    }
+
+    let result;
+    try { 
+      this.log({ message: 'process task', category: 'system', job: job.toJSON() });
+      result = await this.process(job);
+    } finally {
+      // 无论失败和成功都释放, 以便queue重启任务的时候可以继续操作.(但是需注意逻辑的严谨性)
+      if (lock) await lock.unlock();
+    }
+
+    return result;
   }
 };

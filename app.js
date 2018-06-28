@@ -4,6 +4,7 @@ const path = require('path');
 const assert = require('assert');
 const _ = require('lodash');
 const Queue = require('bull');
+const RedLock = require('redlock');
 
 module.exports = app => {
   const config = app.config.task;
@@ -18,6 +19,7 @@ module.exports = app => {
     '[egg-task] host and port of redis are required on config.queue'
   );
   const queueClient = new Queue(config.name || 'task', config.queue);
+  const redlock = new RedLock([ queueClient.client ], config.lock);
 
   loadToTask();
   app.beforeStart(process);
@@ -35,6 +37,7 @@ module.exports = app => {
       directory: path.join(app.options.baseDir, 'app/task'),
       initializer(model, opt) {
         model.prototype.queue = queueClient; // 传递queue到task类中
+        model.prototype.redlock = redlock; // 传递redlock到task类中
         return model;
       },
     }, opt);
