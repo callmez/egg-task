@@ -44,7 +44,7 @@ module.exports = app => {
   }
 
   function process() {
-    queueClient.process(function(job) {
+    queueClient.process(config.concurrency, function(job) {
       const pathName = _.get(job.data, 'meta.pathName');
       if (!pathName) throw new Error('Missing task pathName meta data.');
       const ctx = app.createAnonymousContext();
