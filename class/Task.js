@@ -1,9 +1,12 @@
 'use strict';
 
-const { BaseContextClass } = require('egg');
 const _ = require('lodash');
+const { BaseContextClass } = require('egg');
+const Singleton = require('egg/lib/core/singleton');
 
-module.exports = class Task extends BaseContextClass {
+const QUEUE = Symbol('Task#queue')
+
+class Task extends BaseContextClass {
 
   constructor(ctx) {
     super(ctx);
@@ -15,7 +18,30 @@ module.exports = class Task extends BaseContextClass {
    * @return {{}} - return task options
    */
   get options() {
-    return {};
+    return {
+
+    };
+  }
+
+  /**
+   * 获取指定queue处理任务
+   * @return {*}
+   */
+  get queue() {
+    if (!this[QUEUE]) {
+      const { app: { queue } } = this;
+      let client;
+      if (queue instanceof Singleton) { // 多queue环境
+        // 通过指定queueName可以为当前task指定queue, 必须为存在的queue.name;
+        const name = this.queueName || queue.clients.keys().next().value; // 无指定则返回第一个queue
+        client = queue.get(name);
+        if (!client) throw new Error(`the name "${name}" of queue is not exists.`);
+      } else {
+        client = queue;
+      }
+      this[QUEUE] = client;
+    }
+    return this[QUEUE];
   }
 
   /**
@@ -27,7 +53,7 @@ module.exports = class Task extends BaseContextClass {
    * @return {Promise<void>}
    */
   log({ type = 'info', message, category = 'app', ...data}) {
-    this.app.logger[type]('[task]', `[${this.pathName}]`, `[${category}]`, message, data);
+    this.queue.logger[type]('[egg-task]', `[${category}]`, `[${this.pathName}]`, message, data);
   }
   
   /**
@@ -38,6 +64,8 @@ module.exports = class Task extends BaseContextClass {
    */
   async add(data, options = {}) {
     return this.addTask(data, {
+      attempts: 3, // 默认执行3次错误重试
+      removeOnComplete: true, // 默认执行成功后删除记录, 缩减redis数据大小
       ...this.options,
       ...options,
     });
@@ -49,6 +77,19 @@ module.exports = class Task extends BaseContextClass {
    */
   async process(job) {
     return this.app.logger.error('process method must be override');
+  }
+
+  /**
+   * 重新添加任务
+   * @param job
+   * @return {Promise<*>}
+   */
+  async readd(oldJob) {
+    const { data, opts } = oldJob;
+    delete opts.timestamp; // 删除时间 重新计算执行事件
+    const job = await this.addTask(data, opts);
+    this.log({ message: 'readd task', category: 'system', job: job.toJSON() });
+    return job;
   }
 
   /**
@@ -65,19 +106,6 @@ module.exports = class Task extends BaseContextClass {
     const job = await task.add.apply(task, args);
     this.log({ message: 'add subtask', category: 'system', job: job.toJSON() });
     return job;
-  }
-
-  /**
-   * @param {string} key 锁定键值
-   * @param {number} ttl 超时锁定时间 默认1天
-   * @return {Promise<Promise<*>|*>}
-   */
-  async lock(key, ttl = 24 * 3600 * 1000) {
-    return this.redlock.lock(key, ttl);
-  }
-
-  async unlock(){
-    return this.redlock.unlock();
   }
 
   /**
@@ -106,28 +134,10 @@ module.exports = class Task extends BaseContextClass {
    * @return {Promise<*>}
    */
   async processTask(job) {
-    // !!注意!! 设定了开启了lock之后, 需要指定jobID才能锁定指定的job,
-    let lock = _.get(job, 'opts.lock', false);
-    if (!!lock) {
-      const jobID = _.get(job, 'opts.repeat.jobId', job.id);
-      const ttl = /\d+/.test(lock) ? lock : 24 * 3600 * 1000; // 默认锁超时1天
-      try {
-        lock = await this.redlock.lock(`lock:${jobID}`, ttl); // TODO 更完善的重试job时锁控制
-      } catch (e) {
-        this.log({ type: 'debug', message: `The task job ${jobID} has been locked. will skip this job call.`});
-        return false;
-      }
-    }
-
-    let result;
-    try { 
-      this.log({ message: 'process task', category: 'system', job: job.toJSON() });
-      result = await this.process(job);
-    } finally {
-      // 无论失败和成功都释放, 以便queue重启任务的时候可以继续操作.(但是需注意逻辑的严谨性)
-      if (lock) await lock.unlock();
-    }
-
+    this.log({ message: 'process task', category: 'system', job: job.toJSON() });
+    const result = await this.process(job);
     return result;
   }
 };
+
+module.exports = Task;
