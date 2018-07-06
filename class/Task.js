@@ -73,9 +73,11 @@ class Task extends BaseContextClass {
 
   /**
    * 执行任务. 复写该方法执行任务流程
+   * @param data
+   * @param job
    * @return {Promise<*>}
    */
-  async process(job) {
+  async process(data, job) {
     return this.app.logger.error('process method must be override');
   }
 
@@ -135,7 +137,7 @@ class Task extends BaseContextClass {
    */
   async processTask(job) {
     this.log({ message: 'process task', category: 'system', job: job.toJSON() });
-    const result = await this.process(job);
+    const result = await this.process(job.data, job);
     return result;
   }
 };
