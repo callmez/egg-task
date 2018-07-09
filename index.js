@@ -1,7 +1,9 @@
 'use strict';
 
-const Task = require('./class/Task');
+const Task = require('./lib/class/Task');
+const Queue = require('bull');
 
 module.exports = {
   Task,
+  Queue,
 };
